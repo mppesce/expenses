@@ -577,21 +577,30 @@
             const today = new Date();
             const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD
             
+            let processedCount = 0;
+            const receiptsToAdd = [];
+            
             // Process each file
             files.forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const receipt = {
-                        id: `${Date.now()}_${index}`,
+                        id: `${Date.now()}_${Math.random()}_${index}`,
                         image: e.target.result,
-                        date: todayFormatted,  // Default to today
+                        date: todayFormatted,
                         amount: '',
                         captureDate: today.toISOString()
                     };
                     
-                    purpose.receipts.push(receipt);
-                    saveData();
-                    renderReceiptGrid();
+                    receiptsToAdd.push(receipt);
+                    processedCount++;
+                    
+                    // When all files are processed, add them all at once
+                    if (processedCount === files.length) {
+                        purpose.receipts.push(...receiptsToAdd);
+                        saveData();
+                        renderReceiptGrid();
+                    }
                 };
                 reader.readAsDataURL(file);
             });
