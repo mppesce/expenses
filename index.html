@@ -380,7 +380,7 @@
             <div class="receipt-grid" id="receiptGrid"></div>
             
             <button class="btn btn-secondary export-btn" onclick="exportReceipts()">
-                📤 Export Receipts
+                📤 Export This Purpose
             </button>
         </div>
         
@@ -824,13 +824,19 @@
         }
         
         function updateReceiptField(field, value) {
+            console.log(`updateReceiptField called: ${field} = ${value}`);
             const purpose = purposes.find(p => p.id === currentPurposeId);
             const receipt = purpose.receipts.find(r => r.id === currentReceiptId);
             
             if (receipt) {
+                console.log(`Before update - ${field}:`, receipt[field]);
                 receipt[field] = value;
+                console.log(`After update - ${field}:`, receipt[field]);
+                console.log('Full receipt object:', receipt);
                 saveData();
                 renderReceiptGrid();
+            } else {
+                console.error('Receipt not found!');
             }
         }
         
@@ -878,16 +884,20 @@
                     purposes: purposes.map(p => ({
                         name: p.name,
                         receiptCount: p.receipts.length,
-                        receipts: p.receipts.map((r, idx) => ({
-                            filename: `${p.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
-                            date: r.date,
-                            amount: r.amount,
-                            captureDate: r.captureDate
-                        }))
+                        receipts: p.receipts.map((r, idx) => {
+                            console.log(`Receipt ${idx + 1} data:`, {date: r.date, amount: r.amount});
+                            return {
+                                filename: `${p.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
+                                date: r.date || '',
+                                amount: r.amount || '',
+                                captureDate: r.captureDate
+                            };
+                        })
                     }))
                 };
                 
                 console.log('Export metadata:', exportData);
+                console.log('Full purposes data being exported:', JSON.stringify(exportData, null, 2));
                 
                 // Add purposes.json to ZIP
                 zip.file('purposes.json', JSON.stringify(exportData, null, 2));
@@ -962,42 +972,116 @@
             console.log('=== exportPurposes END ===');
         }
         
-        function exportReceipts() {
+        async function exportReceipts() {
             const purpose = purposes.find(p => p.id === currentPurposeId);
+            
+            if (!purpose) {
+                alert('Purpose not found');
+                return;
+            }
             
             if (purpose.receipts.length === 0) {
                 alert('No receipts to export');
                 return;
             }
             
-            // Create metadata with date and amount
-            const exportData = {
-                version: "1.0",
-                exportDate: new Date().toISOString(),
-                source: "PWA Companion App",
-                purposeName: purpose.name,
-                receipts: purpose.receipts.map((r, i) => ({
-                    filename: `receipt_${String(i + 1).padStart(3, '0')}.jpg`,
-                    date: r.date || '',
-                    amount: r.amount || '',
-                    captureDate: r.captureDate
-                }))
-            };
+            console.log(`=== Exporting purpose: ${purpose.name} ===`);
+            console.log('Receipts:', purpose.receipts.length);
             
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
+            // Show processing notification
+            showProcessingNotification(0, 1);
+            updateProcessingNotification(1, 1);
             
-            // Export metadata
-            if (navigator.share) {
-                const file = new File([blob], `${purpose.name}_receipts.json`, { type: 'application/json' });
-                navigator.share({
-                    files: [file],
-                    title: `${purpose.name} Receipt Data`,
-                    text: `Receipt metadata with dates and amounts`
-                }).catch(err => console.log('Share cancelled'));
-            } else {
-                downloadFile(blob, `${purpose.name}_receipts.json`);
+            try {
+                // Create ZIP file
+                const zip = new JSZip();
+                
+                // Create metadata for this purpose
+                const exportData = {
+                    version: "1.0",
+                    exportDate: new Date().toISOString(),
+                    source: "PWA Companion App",
+                    totalPurposes: 1,
+                    totalReceipts: purpose.receipts.length,
+                    purposes: [{
+                        name: purpose.name,
+                        receiptCount: purpose.receipts.length,
+                        receipts: purpose.receipts.map((r, idx) => {
+                            console.log(`Receipt ${idx + 1} data:`, {date: r.date, amount: r.amount});
+                            return {
+                                filename: `${purpose.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
+                                date: r.date || '',
+                                amount: r.amount || '',
+                                captureDate: r.captureDate
+                            };
+                        })
+                    }]
+                };
+                
+                console.log('Export metadata:', exportData);
+                
+                // Add purposes.json to ZIP
+                zip.file('purposes.json', JSON.stringify(exportData, null, 2));
+                
+                // Add all receipt images to ZIP
+                const folderName = purpose.name.replace(/[^a-z0-9]/gi, '_');
+                
+                for (let i = 0; i < purpose.receipts.length; i++) {
+                    const receipt = purpose.receipts[i];
+                    console.log(`Adding receipt ${i + 1}/${purpose.receipts.length} to ZIP...`);
+                    
+                    // Convert base64 to blob
+                    const base64Data = receipt.image.split(',')[1];
+                    zip.file(`${folderName}/${folderName}_${i + 1}.jpg`, base64Data, {base64: true});
+                }
+                
+                console.log('Generating ZIP file...');
+                
+                // Generate ZIP file
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+                
+                console.log('ZIP generated, size:', zipBlob.size, 'bytes');
+                
+                const filename = `${purpose.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.zip`;
+                
+                // Try to share via Web Share API
+                if (navigator.share && navigator.canShare) {
+                    try {
+                        const file = new File([zipBlob], filename, { type: 'application/zip' });
+                        
+                        if (navigator.canShare({ files: [file] })) {
+                            console.log('Using Web Share API...');
+                            await navigator.share({
+                                files: [file],
+                                title: `${purpose.name}`,
+                                text: `${purpose.name} with ${purpose.receipts.length} receipt(s)`
+                            });
+                            console.log('Share completed successfully');
+                            hideProcessingNotification();
+                            return;
+                        }
+                    } catch (err) {
+                        console.log('Share error or cancelled:', err);
+                    }
+                }
+                
+                // Fallback: download
+                console.log('Using download fallback...');
+                downloadFile(zipBlob, filename);
+                
+                hideProcessingNotification();
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                alert(`Export failed: ${error.message}`);
+                hideProcessingNotification();
             }
+            
+            console.log('=== Export complete ===');
         }
         
         function downloadFile(blob, filename) {
