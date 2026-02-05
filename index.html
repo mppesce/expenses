@@ -517,6 +517,26 @@
             closeModal('addPurposeModal');
         }
         
+        function deletePurpose(purposeId) {
+            const purpose = purposes.find(p => p.id === purposeId);
+            
+            if (!purpose) return;
+            
+            // Confirm deletion
+            const receiptCount = purpose.receipts.length;
+            const message = receiptCount > 0 
+                ? `Delete "${purpose.name}" with ${receiptCount} receipt${receiptCount !== 1 ? 's' : ''}?\n\nThis cannot be undone.`
+                : `Delete "${purpose.name}"?`;
+            
+            if (confirm(message)) {
+                console.log(`Deleting purpose: ${purpose.name}`);
+                purposes = purposes.filter(p => p.id !== purposeId);
+                saveData();
+                renderPurposeList();
+                console.log(`Purpose deleted. Remaining: ${purposes.length}`);
+            }
+        }
+        
         function renderPurposeList() {
             const container = document.getElementById('purposeList');
             const exportBtn = document.getElementById('exportBtn');
@@ -535,15 +555,17 @@
                 exportBtn.style.display = 'none';
             } else {
                 container.innerHTML = purposes.map(purpose => `
-                    <div class="purpose-card" onclick="openPurpose('${purpose.id}')">
-                        <div style="display:flex; gap:16px; align-items:center;">
+                    <div class="purpose-card" style="position:relative;">
+                        <div style="display:flex; gap:16px; align-items:center; flex:1;" onclick="openPurpose('${purpose.id}')">
                             <div class="purpose-icon">🏷️</div>
                             <div class="purpose-info">
                                 <h3>${purpose.name}</h3>
                                 <p>${purpose.receipts.length} receipt${purpose.receipts.length !== 1 ? 's' : ''}</p>
                             </div>
                         </div>
-                        <div style="font-size:20px; color:#9CA3AF;">›</div>
+                        <button onclick="event.stopPropagation(); deletePurpose('${purpose.id}')" style="background:none; border:none; font-size:20px; color:#EF4444; cursor:pointer; padding:8px; margin-left:8px;" title="Delete Purpose">
+                            🗑️
+                        </button>
                     </div>
                 `).join('');
                 exportBtn.style.display = 'block';
