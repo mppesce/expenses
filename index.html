@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Purpose Manager">
+    <title>Purpose Manager - Mobile Companion</title>
+    
+    <!-- Tesseract.js for OCR -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+    
+    <!-- Tesseract.js for OCR -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #4F46E5;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-primary {
+            background: #4F46E5;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #10B981;
+            color: white;
+        }
+        
+        .btn-icon {
+            background: #4F46E5;
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+        
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+        
+        .empty-state-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+        
+        .empty-state h2 {
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .purpose-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .purpose-card:active {
+            transform: scale(0.98);
+        }
+        
+        .purpose-info h3 {
+            font-size: 18px;
+            color: #1F2937;
+            margin-bottom: 4px;
+        }
+        
+        .purpose-info p {
+            font-size: 14px;
+            color: #6B7280;
+        }
+        
+        .purpose-icon {
+            width: 50px;
+            height: 50px;
+            background: #EEF2FF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .receipt-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .receipt-thumbnail {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background: #F3F4F6;
+            cursor: pointer;
+        }
+        
+        .receipt-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .receipt-date {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 10px;
+            padding: 4px;
+            text-align: center;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            font-size: 20px;
+            color: #1F2937;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6B7280;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4F46E5;
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        
+        .camera-input {
+            display: none;
+        }
+        
+        .floating-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #4F46E5;
+            color: white;
+            border: none;
+            font-size: 32px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            z-index: 100;
+        }
+        
+        .floating-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .export-btn {
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .receipt-detail-modal .modal-content {
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .receipt-image-large {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #4F46E5;
+        }
+        
+        .processing-badge {
+            display: inline-block;
+            background: #FCD34D;
+            color: #92400E;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .delete-receipt-btn {
+            background: #EF4444;
+            color: white;
+            width: 100%;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Screen -->
+    <div id="mainScreen">
+        <div class="header">
+            <h1>📋 Purpose Manager</h1>
+            <button class="btn-icon" onclick="showAddPurposeModal()">+</button>
+        </div>
+        
+        <div class="container" id="purposeList">
+            <div class="empty-state">
+                <div class="empty-state-icon">🏷️</div>
+                <h2>No Purposes Yet</h2>
+                <p>Create purposes to organize your receipts</p>
+                <button class="btn btn-primary" onclick="showAddPurposeModal()">
+                    ➕ Create First Purpose
+                </button>
+            </div>
+        </div>
+        
+        <button class="btn btn-secondary export-btn" id="exportBtn" onclick="exportPurposes()" style="display:none; margin: 20px;">
+            📤 Export All Purposes
+        </button>
+    </div>
+    
+    <!-- Purpose Detail Screen -->
+    <div id="detailScreen" style="display:none;">
+        <div class="header">
+            <button class="back-btn" onclick="showMainScreen()">←</button>
+            <h1 id="purposeTitle"></h1>
+            <button class="btn-icon" onclick="openCamera()">📷</button>
+        </div>
+        
+        <div class="container">
+            <div class="receipt-grid" id="receiptGrid"></div>
+            
+            <button class="btn btn-secondary export-btn" onclick="exportReceipts()">
+                📤 Export Receipts
+            </button>
+        </div>
+        
+        <input type="file" class="camera-input" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageCapture(event)">
+    </div>
+    
+    <!-- Add Purpose Modal -->
+    <div class="modal" id="addPurposeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Purpose</h2>
+                <button class="close-btn" onclick="closeModal('addPurposeModal')">✕</button>
+            </div>
+            <input type="text" id="purposeNameInput" placeholder="e.g., Client Dinners" />
+            <button class="btn btn-primary" style="width:100%;" onclick="createPurpose()">Create Purpose</button>
+        </div>
+    </div>
+
+    <!-- Receipt Detail Modal -->
+    <div class="modal receipt-detail-modal" id="receiptDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Receipt Details</h2>
+                <button class="close-btn" onclick="closeModal('receiptDetailModal')">✕</button>
+            </div>
+            
+            <div id="processingBadge" style="display:none;">
+                <span class="processing-badge">🔍 Reading receipt...</span>
+            </div>
+            
+            <img id="receiptImageLarge" class="receipt-image-large" src="" alt="Receipt">
+            
+            <div class="form-group">
+                <label for="receiptDate">Date</label>
+                <input type="date" id="receiptDate" onchange="updateReceiptField('date', this.value)">
+            </div>
+            
+            <div class="form-group">
+                <label for="receiptAmount">Amount ($)</label>
+                <input type="number" step="0.01" id="receiptAmount" placeholder="0.00" onchange="updateReceiptField('amount', this.value)">
+            </div>
+            
+            <button class="btn btn-primary" style="width:100%;" onclick="closeModal('receiptDetailModal')">Done</button>
+            <button class="btn delete-receipt-btn" onclick="deleteCurrentReceipt()">Delete Receipt</button>
+        </div>
+    </div>
+
+    <script>
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed'));
+        }
+
+        // Data Storage
+        let purposes = [];
+        let currentPurposeId = null;
+        let currentReceiptId = null;
+        
+        // Load data on startup
+        loadData();
+        
+        function loadData() {
+            const stored = localStorage.getItem('purposes');
+            if (stored) {
+                purposes = JSON.parse(stored);
+            }
+            renderPurposeList();
+        }
+        
+        function saveData() {
+            localStorage.setItem('purposes', JSON.stringify(purposes));
+        }
+        
+        // OCR Processing
+        async function processReceiptWithOCR(imageData, receiptId) {
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const receipt = purpose.receipts.find(r => r.id === receiptId);
+            
+            // Show processing badge
+            if (currentReceiptId === receiptId) {
+                document.getElementById('processingBadge').style.display = 'block';
+            }
+            
+            try {
+                const result = await Tesseract.recognize(imageData, 'eng', {
+                    logger: m => console.log(m)
+                });
+                
+                const text = result.data.text;
+                console.log('OCR Text:', text);
+                
+                // Extract date and amount
+                const extractedData = extractDataFromText(text);
+                
+                // Update receipt
+                receipt.date = extractedData.date || receipt.date;
+                receipt.amount = extractedData.amount || receipt.amount;
+                
+                saveData();
+                
+                // Update UI if modal is open
+                if (currentReceiptId === receiptId) {
+                    document.getElementById('receiptDate').value = receipt.date;
+                    document.getElementById('receiptAmount').value = receipt.amount;
+                    document.getElementById('processingBadge').style.display = 'none';
+                }
+                
+                renderReceiptGrid();
+                
+            } catch (error) {
+                console.error('OCR Error:', error);
+                if (currentReceiptId === receiptId) {
+                    document.getElementById('processingBadge').style.display = 'none';
+                }
+            }
+        }
+        
+        function extractDataFromText(text) {
+            const cleanText = text.replace(/\s+/g, ' ').trim();
+            
+            // Extract amount
+            const amountPattern = /\$?\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+            const amounts = Array.from(cleanText.matchAll(amountPattern))
+                .map(m => parseFloat(m[1].replace(/,/g, '')))
+                .filter(n => n > 0 && n < 100000);
+            const amount = amounts.length > 0 ? Math.max(...amounts).toFixed(2) : '';
+            
+            // Extract date - multiple formats
+            let date = '';
+            const datePatterns = [
+                /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/g,
+                /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/g,
+                /(\d{1,2})(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(\d{2,4})/gi,
+                /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(\d{1,2})[,\s]*(\d{4})/gi
+            ];
+            
+            const monthMap = {
+                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+            };
+            
+            const foundDates = [];
+            const currentYear = new Date().getFullYear();
+            
+            for (const pattern of datePatterns) {
+                const matches = Array.from(cleanText.matchAll(pattern));
+                for (const match of matches) {
+                    try {
+                        let parsedDate = null;
+                        const matchLower = match[0].toLowerCase();
+                        
+                        // Check if contains month name
+                        const hasMonthName = Object.keys(monthMap).some(month => matchLower.includes(month));
+                        
+                        if (hasMonthName) {
+                            // Handle month name formats
+                            let day, month, year;
+                            
+                            if (match[1] && !isNaN(match[1])) {
+                                // Format: DDMonYY
+                                day = parseInt(match[1]);
+                                const monthStr = match[2].toLowerCase().substring(0, 3);
+                                month = monthMap[monthStr];
+                                year = parseInt(match[3]);
+                            } else if (match[2] && !isNaN(match[2])) {
+                                // Format: MonDDYY
+                                const monthStr = match[1].toLowerCase().substring(0, 3);
+                                month = monthMap[monthStr];
+                                day = parseInt(match[2]);
+                                year = parseInt(match[3]);
+                            }
+                            
+                            if (year < 100) {
+                                year = year < 50 ? 2000 + year : 1900 + year;
+                            }
+                            
+                            if (day && month && year) {
+                                parsedDate = `${year}-${month}-${String(day).padStart(2, '0')}`;
+                            }
+                        } else {
+                            // Numeric formats
+                            const parts = match[0].match(/\d+/g);
+                            if (parts && parts.length >= 2) {
+                                let day, month, year;
+                                
+                                if (parts[0].length === 4) {
+                                    // YYYY-MM-DD
+                                    year = parseInt(parts[0]);
+                                    month = parts[1].padStart(2, '0');
+                                    day = parts[2].padStart(2, '0');
+                                } else {
+                                    // MM/DD/YY or DD/MM/YY
+                                    const num1 = parseInt(parts[0]);
+                                    const num2 = parseInt(parts[1]);
+                                    year = parts[2] ? parseInt(parts[2]) : currentYear;
+                                    
+                                    if (year < 100) {
+                                        year = year < 50 ? 2000 + year : 1900 + year;
+                                    }
+                                    
+                                    // Prefer MM/DD
+                                    if (num1 <= 12) {
+                                        month = String(num1).padStart(2, '0');
+                                        day = String(num2).padStart(2, '0');
+                                    } else {
+                                        day = String(num1).padStart(2, '0');
+                                        month = String(num2).padStart(2, '0');
+                                    }
+                                }
+                                
+                                if (day && month && year) {
+                                    parsedDate = `${year}-${month}-${day}`;
+                                }
+                            }
+                        }
+                        
+                        if (parsedDate) {
+                            const testDate = new Date(parsedDate);
+                            if (!isNaN(testDate.getTime()) && 
+                                testDate.getFullYear() >= 2000 && 
+                                testDate.getFullYear() <= currentYear + 1) {
+                                foundDates.push(parsedDate);
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Date parsing error:', e);
+                    }
+                }
+            }
+            
+            // Use latest date
+            if (foundDates.length > 0) {
+                foundDates.sort();
+                date = foundDates[foundDates.length - 1];
+            }
+            
+            return { amount, date };
+        }
+        
+        // Purpose Management
+        function showAddPurposeModal() {
+            document.getElementById('addPurposeModal').classList.add('active');
+            document.getElementById('purposeNameInput').value = '';
+            document.getElementById('purposeNameInput').focus();
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+        
+        function createPurpose() {
+            const name = document.getElementById('purposeNameInput').value.trim();
+            if (!name) return;
+            
+            const purpose = {
+                id: Date.now().toString(),
+                name: name,
+                receipts: []
+            };
+            
+            purposes.push(purpose);
+            saveData();
+            renderPurposeList();
+            closeModal('addPurposeModal');
+        }
+        
+        function renderPurposeList() {
+            const container = document.getElementById('purposeList');
+            const exportBtn = document.getElementById('exportBtn');
+            
+            if (purposes.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🏷️</div>
+                        <h2>No Purposes Yet</h2>
+                        <p>Create purposes to organize your receipts</p>
+                        <button class="btn btn-primary" onclick="showAddPurposeModal()">
+                            ➕ Create First Purpose
+                        </button>
+                    </div>
+                `;
+                exportBtn.style.display = 'none';
+            } else {
+                container.innerHTML = purposes.map(purpose => `
+                    <div class="purpose-card" onclick="openPurpose('${purpose.id}')">
+                        <div style="display:flex; gap:16px; align-items:center;">
+                            <div class="purpose-icon">🏷️</div>
+                            <div class="purpose-info">
+                                <h3>${purpose.name}</h3>
+                                <p>${purpose.receipts.length} receipt${purpose.receipts.length !== 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
+                        <div style="font-size:20px; color:#9CA3AF;">›</div>
+                    </div>
+                `).join('');
+                exportBtn.style.display = 'block';
+            }
+        }
+        
+        // Purpose Detail Screen
+        function openPurpose(purposeId) {
+            currentPurposeId = purposeId;
+            const purpose = purposes.find(p => p.id === purposeId);
+            
+            document.getElementById('purposeTitle').textContent = purpose.name;
+            document.getElementById('mainScreen').style.display = 'none';
+            document.getElementById('detailScreen').style.display = 'block';
+            
+            renderReceiptGrid();
+        }
+        
+        function showMainScreen() {
+            document.getElementById('mainScreen').style.display = 'block';
+            document.getElementById('detailScreen').style.display = 'none';
+            currentPurposeId = null;
+        }
+        
+        function renderReceiptGrid() {
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const grid = document.getElementById('receiptGrid');
+            
+            if (purpose.receipts.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align:center; padding:60px 20px; color:white;">
+                        <div style="font-size:60px; margin-bottom:16px;">📷</div>
+                        <h3 style="margin-bottom:8px;">No Receipts Yet</h3>
+                        <p>Tap the camera icon to capture your first receipt</p>
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = purpose.receipts.map(receipt => `
+                    <div class="receipt-thumbnail" onclick="openReceiptDetail('${receipt.id}')">
+                        <img src="${receipt.image}" alt="Receipt">
+                        <div class="receipt-date">
+                            ${receipt.date ? new Date(receipt.date).toLocaleDateString() : 'No date'}
+                            <br>
+                            ${receipt.amount ? '$' + receipt.amount : 'No amount'}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+        
+        // Camera Functions
+        function openCamera() {
+            document.getElementById('cameraInput').click();
+        }
+        
+        function handleImageCapture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const receipt = {
+                    id: Date.now().toString(),
+                    image: e.target.result,
+                    date: '',
+                    amount: '',
+                    captureDate: new Date().toISOString()
+                };
+                
+                const purpose = purposes.find(p => p.id === currentPurposeId);
+                purpose.receipts.push(receipt);
+                saveData();
+                renderReceiptGrid();
+                
+                // Run OCR processing in background
+                processReceiptWithOCR(file, receipt.id);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // OCR Processing
+        async function processReceiptWithOCR(file, receiptId) {
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const receipt = purpose.receipts.find(r => r.id === receiptId);
+            
+            if (!receipt) return;
+            
+            try {
+                console.log('Starting OCR processing...');
+                const result = await Tesseract.recognize(file, 'eng', {
+                    logger: m => console.log(m)
+                });
+                
+                const text = result.data.text;
+                console.log('OCR Text:', text);
+                
+                // Extract date and amount
+                const extractedData = extractDataFromText(text);
+                
+                // Update receipt
+                receipt.date = extractedData.date || receipt.date;
+                receipt.amount = extractedData.amount || receipt.amount;
+                
+                saveData();
+                renderReceiptGrid();
+                
+                console.log('OCR complete:', extractedData);
+                
+            } catch (error) {
+                console.error('OCR Error:', error);
+            }
+        }
+        
+        function extractDataFromText(text) {
+            const cleanText = text.replace(/\s+/g, ' ').trim();
+            
+            // Extract amount
+            const amountPattern = /\$?\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+            const amounts = Array.from(cleanText.matchAll(amountPattern))
+                .map(m => parseFloat(m[1].replace(/,/g, '')))
+                .filter(n => n > 0 && n < 100000);
+            const amount = amounts.length > 0 ? Math.max(...amounts).toFixed(2) : '';
+            
+            // Extract date
+            let date = '';
+            const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
+            const dateMatch = cleanText.match(datePattern);
+            
+            if (dateMatch) {
+                let [_, m, d, y] = dateMatch;
+                let year = y.length === 2 ? (parseInt(y) < 50 ? `20${y}` : `19${y}`) : y;
+                date = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            }
+            
+            return { amount, date };
+        }
+        
+        // Receipt Detail Modal
+        function openReceiptDetail(receiptId) {
+            currentReceiptId = receiptId;
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const receipt = purpose.receipts.find(r => r.id === receiptId);
+            
+            document.getElementById('receiptImageLarge').src = receipt.image;
+            document.getElementById('receiptDate').value = receipt.date || '';
+            document.getElementById('receiptAmount').value = receipt.amount || '';
+            document.getElementById('processingBadge').style.display = 'none';
+            
+            document.getElementById('receiptDetailModal').classList.add('active');
+        }
+        
+        function updateReceiptField(field, value) {
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const receipt = purpose.receipts.find(r => r.id === currentReceiptId);
+            
+            if (receipt) {
+                receipt[field] = value;
+                saveData();
+                renderReceiptGrid();
+            }
+        }
+        
+        function deleteCurrentReceipt() {
+            if (!confirm('Delete this receipt?')) return;
+            
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            purpose.receipts = purpose.receipts.filter(r => r.id !== currentReceiptId);
+            
+            saveData();
+            renderReceiptGrid();
+            closeModal('receiptDetailModal');
+        }
+        
+        // Export Functions
+        function exportPurposes() {
+            const exportData = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                source: "PWA Companion App",
+                purposes: purposes.map(p => ({ name: p.name }))
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            
+            if (navigator.share && navigator.canShare({ files: [new File([blob], 'purposes.json')] })) {
+                // Use Web Share API (includes AirDrop on iOS)
+                const file = new File([blob], 'purposes.json', { type: 'application/json' });
+                navigator.share({
+                    files: [file],
+                    title: 'Expense Purposes',
+                    text: 'Purpose list for expense report'
+                }).catch(err => console.log('Share cancelled'));
+            } else {
+                // Fallback: download
+                downloadFile(blob, 'purposes.json');
+            }
+        }
+        
+        function exportReceipts() {
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            
+            if (purpose.receipts.length === 0) {
+                alert('No receipts to export');
+                return;
+            }
+            
+            // Create metadata with date and amount
+            const exportData = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                source: "PWA Companion App",
+                purposeName: purpose.name,
+                receipts: purpose.receipts.map((r, i) => ({
+                    filename: `receipt_${String(i + 1).padStart(3, '0')}.jpg`,
+                    date: r.date || '',
+                    amount: r.amount || '',
+                    captureDate: r.captureDate
+                }))
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            
+            // Export metadata
+            if (navigator.share) {
+                const file = new File([blob], `${purpose.name}_receipts.json`, { type: 'application/json' });
+                navigator.share({
+                    files: [file],
+                    title: `${purpose.name} Receipt Data`,
+                    text: `Receipt metadata with dates and amounts`
+                }).catch(err => console.log('Share cancelled'));
+            } else {
+                downloadFile(blob, `${purpose.name}_receipts.json`);
+            }
+        }
+        
+        function downloadFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallPrompt();
+        });
+        
+        function showInstallPrompt() {
+            // Optional: Show custom install button
+            console.log('App can be installed');
+        }
+    </script>
+</body>
+</html>
