@@ -573,19 +573,27 @@
             const files = Array.from(event.target.files);
             if (files.length === 0) return;
             
-            const purpose = purposes.find(p => p.id === currentPurposeId);
+            // Get purpose at start, not inside callback
+            const purposeId = currentPurposeId;
+            if (!purposeId) {
+                console.error('No purpose selected');
+                return;
+            }
+            
             const today = new Date();
             const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD
             
             let processedCount = 0;
             const receiptsToAdd = [];
             
+            console.log(`Processing ${files.length} file(s)`);
+            
             // Process each file
             files.forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const receipt = {
-                        id: `${Date.now()}_${Math.random()}_${index}`,
+                        id: `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
                         image: e.target.result,
                         date: todayFormatted,
                         amount: '',
@@ -595,11 +603,20 @@
                     receiptsToAdd.push(receipt);
                     processedCount++;
                     
+                    console.log(`Processed ${processedCount} of ${files.length}`);
+                    
                     // When all files are processed, add them all at once
                     if (processedCount === files.length) {
-                        purpose.receipts.push(...receiptsToAdd);
-                        saveData();
-                        renderReceiptGrid();
+                        const purpose = purposes.find(p => p.id === purposeId);
+                        if (purpose) {
+                            console.log(`Adding ${receiptsToAdd.length} receipt(s) to purpose: ${purpose.name}`);
+                            purpose.receipts.push(...receiptsToAdd);
+                            console.log(`Purpose now has ${purpose.receipts.length} total receipts`);
+                            saveData();
+                            renderReceiptGrid();
+                        } else {
+                            console.error('Purpose not found!');
+                        }
                     }
                 };
                 reader.readAsDataURL(file);
