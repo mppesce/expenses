@@ -426,11 +426,18 @@
             <div class="form-group">
                 <label for="receiptCategory">Category</label>
                 <select id="receiptCategory" onchange="updateReceiptField('category', this.value)">
-                    <option value="Meals">Meals</option>
-                    <option value="Lodging">Lodging</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Supplies">Supplies</option>
-                    <option value="Entertainment">Entertainment</option>
+                    <option value="Airfare">Airfare</option>
+                    <option value="Hotel">Hotel</option>
+                    <option value="Car Rental">Car Rental</option>
+                    <option value="Taxi">Taxi</option>
+                    <option value="Fuel">Fuel</option>
+                    <option value="Parking/Tolls">Parking/Tolls</option>
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Cable/Internet">Cable/Internet</option>
+                    <option value="Phone">Phone</option>
+                    <option value="Office Supplies">Office Supplies</option>
                     <option value="Other">Other</option>
                 </select>
             </div>
@@ -763,7 +770,7 @@
                         image: imageData,
                         date: todayFormatted,
                         amount: '',
-                        category: 'Meals',
+                        category: 'Other',
                         captureDate: today.toISOString()
                     };
                     
@@ -832,7 +839,7 @@
             document.getElementById('receiptImageLarge').src = receipt.image;
             document.getElementById('receiptDate').value = receipt.date || '';
             document.getElementById('receiptAmount').value = receipt.amount || '';
-            document.getElementById('receiptCategory').value = receipt.category || 'Meals';
+            document.getElementById('receiptCategory').value = receipt.category || 'Other';
             
             document.getElementById('receiptDetailModal').classList.add('active');
         }
@@ -904,7 +911,7 @@
                                 filename: `${p.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
                                 date: r.date || '',
                                 amount: r.amount || '',
-                                category: r.category || 'Meals',
+                                category: r.category || 'Other',
                                 captureDate: r.captureDate
                             };
                         })
@@ -1027,7 +1034,7 @@
                                 filename: `${purpose.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
                                 date: r.date || '',
                                 amount: r.amount || '',
-                                category: r.category || 'Meals',
+                                category: r.category || 'Other',
                                 captureDate: r.captureDate
                             };
                         })
