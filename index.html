@@ -661,25 +661,41 @@
                 const file = files[index];
                 console.log('File name:', file.name, 'Size:', file.size);
                 
+                // Add small delay between files to help iOS Safari
+                if (index > 0) {
+                    console.log('Waiting 100ms before next file...');
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
                 try {
                     // Update notification
                     updateProcessingNotification(index + 1, files.length);
                     
-                    // Read file as promise
+                    // Read file as promise with timeout
                     console.log('Starting FileReader...');
-                    const imageData = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            console.log('FileReader onload - data length:', e.target.result.length);
-                            resolve(e.target.result);
-                        };
-                        reader.onerror = (e) => {
-                            console.error('FileReader error:', e);
-                            reject(e);
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                    console.log('FileReader complete');
+                    const imageData = await Promise.race([
+                        new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                console.log('FileReader onload - data length:', e.target.result ? e.target.result.length : 0);
+                                const result = e.target.result;
+                                // Clear the reader to free memory on iOS
+                                reader.abort();
+                                resolve(result);
+                            };
+                            reader.onerror = (e) => {
+                                console.error('FileReader error:', e);
+                                reader.abort();
+                                reject(e);
+                            };
+                            console.log('About to call readAsDataURL...');
+                            reader.readAsDataURL(file);
+                        }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('FileReader timeout after 30s')), 30000)
+                        )
+                    ]);
+                    console.log('FileReader complete, data length:', imageData ? imageData.length : 0);
                     
                     const receipt = {
                         id: `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
@@ -695,6 +711,7 @@
                     
                 } catch (error) {
                     console.error('Error processing file:', error);
+                    alert(`Failed to process image ${index + 1}: ${error.message}`);
                 }
             }
             
