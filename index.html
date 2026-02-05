@@ -16,6 +16,9 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
     
+    <!-- JSZip for creating ZIP files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -843,29 +846,120 @@
         }
         
         // Export Functions
-        function exportPurposes() {
-            const exportData = {
-                version: "1.0",
-                exportDate: new Date().toISOString(),
-                source: "PWA Companion App",
-                purposes: purposes.map(p => ({ name: p.name }))
-            };
+        async function exportPurposes() {
+            console.log('=== exportPurposes START ===');
+            console.log('Current purposes:', purposes);
+            console.log('Number of purposes:', purposes.length);
             
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            
-            if (navigator.share && navigator.canShare({ files: [new File([blob], 'purposes.json')] })) {
-                // Use Web Share API (includes AirDrop on iOS)
-                const file = new File([blob], 'purposes.json', { type: 'application/json' });
-                navigator.share({
-                    files: [file],
-                    title: 'Expense Purposes',
-                    text: 'Purpose list for expense report'
-                }).catch(err => console.log('Share cancelled'));
-            } else {
-                // Fallback: download
-                downloadFile(blob, 'purposes.json');
+            if (purposes.length === 0) {
+                alert('No purposes to export. Create some purposes first!');
+                return;
             }
+            
+            // Show processing notification
+            showProcessingNotification(0, 1);
+            updateProcessingNotification(1, 1);
+            
+            try {
+                // Count total receipts
+                const totalReceipts = purposes.reduce((sum, p) => sum + p.receipts.length, 0);
+                console.log('Total receipts to export:', totalReceipts);
+                
+                // Create ZIP file
+                const zip = new JSZip();
+                
+                // Create purposes metadata (with receipt references)
+                const exportData = {
+                    version: "1.0",
+                    exportDate: new Date().toISOString(),
+                    source: "PWA Companion App",
+                    totalPurposes: purposes.length,
+                    totalReceipts: totalReceipts,
+                    purposes: purposes.map(p => ({
+                        name: p.name,
+                        receiptCount: p.receipts.length,
+                        receipts: p.receipts.map((r, idx) => ({
+                            filename: `${p.name.replace(/[^a-z0-9]/gi, '_')}_${idx + 1}.jpg`,
+                            date: r.date,
+                            amount: r.amount,
+                            captureDate: r.captureDate
+                        }))
+                    }))
+                };
+                
+                console.log('Export metadata:', exportData);
+                
+                // Add purposes.json to ZIP
+                zip.file('purposes.json', JSON.stringify(exportData, null, 2));
+                
+                // Add all receipt images to ZIP
+                let receiptIndex = 0;
+                for (const purpose of purposes) {
+                    if (purpose.receipts.length > 0) {
+                        // Create folder for this purpose
+                        const folderName = purpose.name.replace(/[^a-z0-9]/gi, '_');
+                        
+                        for (let i = 0; i < purpose.receipts.length; i++) {
+                            const receipt = purpose.receipts[i];
+                            receiptIndex++;
+                            
+                            console.log(`Adding receipt ${receiptIndex}/${totalReceipts} to ZIP...`);
+                            
+                            // Convert base64 to blob
+                            const base64Data = receipt.image.split(',')[1];
+                            zip.file(`${folderName}/${folderName}_${i + 1}.jpg`, base64Data, {base64: true});
+                        }
+                    }
+                }
+                
+                console.log('Generating ZIP file...');
+                
+                // Generate ZIP file
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+                
+                console.log('ZIP generated, size:', zipBlob.size, 'bytes');
+                
+                const filename = `expense_report_${new Date().toISOString().split('T')[0]}.zip`;
+                
+                // Try to share via Web Share API
+                if (navigator.share && navigator.canShare) {
+                    try {
+                        const file = new File([zipBlob], filename, { type: 'application/zip' });
+                        
+                        if (navigator.canShare({ files: [file] })) {
+                            console.log('Using Web Share API...');
+                            await navigator.share({
+                                files: [file],
+                                title: 'Expense Report Data',
+                                text: `${purposes.length} purposes with ${totalReceipts} receipts`
+                            });
+                            console.log('Share completed successfully');
+                            
+                            hideProcessingNotification();
+                            return;
+                        }
+                    } catch (err) {
+                        console.log('Share error or cancelled:', err);
+                    }
+                }
+                
+                // Fallback: download
+                console.log('Using download fallback...');
+                downloadFile(zipBlob, filename);
+                
+                hideProcessingNotification();
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                alert(`Export failed: ${error.message}`);
+                hideProcessingNotification();
+            }
+            
+            console.log('=== exportPurposes END ===');
         }
         
         function exportReceipts() {
