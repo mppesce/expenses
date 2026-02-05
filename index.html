@@ -251,8 +251,9 @@
         .back-btn {
             background: none;
             border: none;
-            color: white;
-            font-size: 24px;
+            color: #4F46E5;
+            font-size: 28px;
+            font-weight: bold;
             cursor: pointer;
             padding: 8px;
         }
@@ -358,7 +359,7 @@
     <!-- Purpose Detail Screen -->
     <div id="detailScreen" style="display:none;">
         <div class="header">
-            <button class="back-btn" onclick="showMainScreen()">←</button>
+            <button class="back-btn" onclick="backToPurposes()">←</button>
             <h1 id="purposeTitle"></h1>
             <div style="display: flex; gap: 8px;">
                 <button class="btn-icon" onclick="openCamera()" title="Take Photo">📷</button>
@@ -443,7 +444,21 @@
         }
         
         function saveData() {
+            console.log('Saving purposes to localStorage:', purposes);
             localStorage.setItem('purposes', JSON.stringify(purposes));
+            
+            // Verify save worked
+            const saved = localStorage.getItem('purposes');
+            const parsed = JSON.parse(saved);
+            console.log('Verified save - purposes in storage:', parsed);
+        }
+        
+        function reloadData() {
+            const stored = localStorage.getItem('purposes');
+            if (stored) {
+                purposes = JSON.parse(stored);
+                console.log('Reloaded purposes from storage:', purposes);
+            }
         }
         
         // OCR Processing
@@ -509,8 +524,13 @@
         
         // Purpose Detail Screen
         function openPurpose(purposeId) {
+            // Reload data to ensure we have latest from localStorage
+            reloadData();
+            
             currentPurposeId = purposeId;
             const purpose = purposes.find(p => p.id === purposeId);
+            
+            console.log(`Opening purpose: ${purpose.name}, receipts: ${purpose.receipts.length}`);
             
             document.getElementById('purposeTitle').textContent = purpose.name;
             document.getElementById('mainScreen').style.display = 'none';
@@ -523,6 +543,11 @@
             document.getElementById('mainScreen').style.display = 'block';
             document.getElementById('detailScreen').style.display = 'none';
             currentPurposeId = null;
+            renderPurposeList(); // Refresh the list
+        }
+        
+        function backToPurposes() {
+            showMainScreen();
         }
         
         function renderReceiptGrid() {
