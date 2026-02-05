@@ -360,7 +360,10 @@
         <div class="header">
             <button class="back-btn" onclick="showMainScreen()">←</button>
             <h1 id="purposeTitle"></h1>
-            <button class="btn-icon" onclick="openCamera()">📷</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-icon" onclick="openCamera()" title="Take Photo">📷</button>
+                <button class="btn-icon" onclick="openGallery()" title="Select Multiple">🖼️</button>
+            </div>
         </div>
         
         <div class="container">
@@ -371,7 +374,11 @@
             </button>
         </div>
         
-        <input type="file" class="camera-input" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handleImageCapture(event)">
+        <!-- Camera input for single photo -->
+        <input type="file" class="camera-input" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageCapture(event)">
+        
+        <!-- Gallery input for multiple photos -->
+        <input type="file" class="camera-input" id="galleryInput" accept="image/*" multiple onchange="handleImageCapture(event)">
     </div>
     
     <!-- Add Purpose Modal -->
@@ -527,7 +534,15 @@
                     <div style="grid-column: 1/-1; text-align:center; padding:60px 20px; color:white;">
                         <div style="font-size:60px; margin-bottom:16px;">📷</div>
                         <h3 style="margin-bottom:8px;">No Receipts Yet</h3>
-                        <p>Tap the camera icon to capture your first receipt</p>
+                        <p style="margin-bottom:20px;">Choose how to add receipts:</p>
+                        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                            <button onclick="openCamera()" style="background:white; color:#667eea; padding:12px 24px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                                📷 Take Photo
+                            </button>
+                            <button onclick="openGallery()" style="background:white; color:#667eea; padding:12px 24px; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                                🖼️ Select Multiple
+                            </button>
+                        </div>
                     </div>
                 `;
             } else {
@@ -545,8 +560,13 @@
         }
         
         // Camera Functions
+        // Camera Functions
         function openCamera() {
             document.getElementById('cameraInput').click();
+        }
+        
+        function openGallery() {
+            document.getElementById('galleryInput').click();
         }
         
         function handleImageCapture(event) {
