@@ -16,9 +16,6 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
     
-    <!-- Tesseract.js for OCR -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    
     <style>
         * {
             margin: 0;
@@ -374,7 +371,7 @@
             </button>
         </div>
         
-        <input type="file" class="camera-input" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageCapture(event)">
+        <input type="file" class="camera-input" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handleImageCapture(event)">
     </div>
     
     <!-- Add Purpose Modal -->
@@ -443,171 +440,6 @@
         }
         
         // OCR Processing
-        async function processReceiptWithOCR(imageData, receiptId) {
-            const purpose = purposes.find(p => p.id === currentPurposeId);
-            const receipt = purpose.receipts.find(r => r.id === receiptId);
-            
-            // Show processing badge
-            if (currentReceiptId === receiptId) {
-                document.getElementById('processingBadge').style.display = 'block';
-            }
-            
-            try {
-                const result = await Tesseract.recognize(imageData, 'eng', {
-                    logger: m => console.log(m)
-                });
-                
-                const text = result.data.text;
-                console.log('OCR Text:', text);
-                
-                // Extract only amount (date is already set to capture date)
-                const extractedData = extractDataFromText(text);
-                
-                // Update only amount, keep the date that was set
-                receipt.amount = extractedData.amount || receipt.amount;
-                
-                saveData();
-                
-                // Update UI if modal is open
-                if (currentReceiptId === receiptId) {
-                    document.getElementById('receiptDate').value = receipt.date;
-                    document.getElementById('receiptAmount').value = receipt.amount;
-                    document.getElementById('processingBadge').style.display = 'none';
-                }
-                
-                renderReceiptGrid();
-                
-            } catch (error) {
-                console.error('OCR Error:', error);
-                if (currentReceiptId === receiptId) {
-                    document.getElementById('processingBadge').style.display = 'none';
-                }
-            }
-        }
-        
-        function extractDataFromText(text) {
-            const cleanText = text.replace(/\s+/g, ' ').trim();
-            
-            // Extract amount
-            const amountPattern = /\$?\s*(\d{1,3}(?:,\d{3})*\.\d{2})/g;
-            const amounts = Array.from(cleanText.matchAll(amountPattern))
-                .map(m => parseFloat(m[1].replace(/,/g, '')))
-                .filter(n => n > 0 && n < 100000);
-            const amount = amounts.length > 0 ? Math.max(...amounts).toFixed(2) : '';
-            
-            // Extract date - multiple formats
-            let date = '';
-            const datePatterns = [
-                /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/g,
-                /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/g,
-                /(\d{1,2})(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(\d{2,4})/gi,
-                /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(\d{1,2})[,\s]*(\d{4})/gi
-            ];
-            
-            const monthMap = {
-                'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-                'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-                'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-            };
-            
-            const foundDates = [];
-            const currentYear = new Date().getFullYear();
-            
-            for (const pattern of datePatterns) {
-                const matches = Array.from(cleanText.matchAll(pattern));
-                for (const match of matches) {
-                    try {
-                        let parsedDate = null;
-                        const matchLower = match[0].toLowerCase();
-                        
-                        // Check if contains month name
-                        const hasMonthName = Object.keys(monthMap).some(month => matchLower.includes(month));
-                        
-                        if (hasMonthName) {
-                            // Handle month name formats
-                            let day, month, year;
-                            
-                            if (match[1] && !isNaN(match[1])) {
-                                // Format: DDMonYY
-                                day = parseInt(match[1]);
-                                const monthStr = match[2].toLowerCase().substring(0, 3);
-                                month = monthMap[monthStr];
-                                year = parseInt(match[3]);
-                            } else if (match[2] && !isNaN(match[2])) {
-                                // Format: MonDDYY
-                                const monthStr = match[1].toLowerCase().substring(0, 3);
-                                month = monthMap[monthStr];
-                                day = parseInt(match[2]);
-                                year = parseInt(match[3]);
-                            }
-                            
-                            if (year < 100) {
-                                year = year < 50 ? 2000 + year : 1900 + year;
-                            }
-                            
-                            if (day && month && year) {
-                                parsedDate = `${year}-${month}-${String(day).padStart(2, '0')}`;
-                            }
-                        } else {
-                            // Numeric formats
-                            const parts = match[0].match(/\d+/g);
-                            if (parts && parts.length >= 2) {
-                                let day, month, year;
-                                
-                                if (parts[0].length === 4) {
-                                    // YYYY-MM-DD
-                                    year = parseInt(parts[0]);
-                                    month = parts[1].padStart(2, '0');
-                                    day = parts[2].padStart(2, '0');
-                                } else {
-                                    // MM/DD/YY or DD/MM/YY
-                                    const num1 = parseInt(parts[0]);
-                                    const num2 = parseInt(parts[1]);
-                                    year = parts[2] ? parseInt(parts[2]) : currentYear;
-                                    
-                                    if (year < 100) {
-                                        year = year < 50 ? 2000 + year : 1900 + year;
-                                    }
-                                    
-                                    // Prefer MM/DD
-                                    if (num1 <= 12) {
-                                        month = String(num1).padStart(2, '0');
-                                        day = String(num2).padStart(2, '0');
-                                    } else {
-                                        day = String(num1).padStart(2, '0');
-                                        month = String(num2).padStart(2, '0');
-                                    }
-                                }
-                                
-                                if (day && month && year) {
-                                    parsedDate = `${year}-${month}-${day}`;
-                                }
-                            }
-                        }
-                        
-                        if (parsedDate) {
-                            const testDate = new Date(parsedDate);
-                            if (!isNaN(testDate.getTime()) && 
-                                testDate.getFullYear() >= 2000 && 
-                                testDate.getFullYear() <= currentYear + 1) {
-                                foundDates.push(parsedDate);
-                            }
-                        }
-                    } catch (e) {
-                        console.log('Date parsing error:', e);
-                    }
-                }
-            }
-            
-            // Use latest date
-            if (foundDates.length > 0) {
-                foundDates.sort();
-                date = foundDates[foundDates.length - 1];
-            }
-            
-            return { amount, date };
-        }
-        
         // Purpose Management
         function showAddPurposeModal() {
             document.getElementById('addPurposeModal').classList.add('active');
@@ -718,32 +550,34 @@
         }
         
         function handleImageCapture(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
             
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                // Set date to today by default
-                const today = new Date();
-                const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD
-                
-                const receipt = {
-                    id: Date.now().toString(),
-                    image: e.target.result,
-                    date: todayFormatted,  // Default to today
-                    amount: '',
-                    captureDate: today.toISOString()
+            const purpose = purposes.find(p => p.id === currentPurposeId);
+            const today = new Date();
+            const todayFormatted = today.toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            // Process each file
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const receipt = {
+                        id: `${Date.now()}_${index}`,
+                        image: e.target.result,
+                        date: todayFormatted,  // Default to today
+                        amount: '',
+                        captureDate: today.toISOString()
+                    };
+                    
+                    purpose.receipts.push(receipt);
+                    saveData();
+                    renderReceiptGrid();
                 };
-                
-                const purpose = purposes.find(p => p.id === currentPurposeId);
-                purpose.receipts.push(receipt);
-                saveData();
-                renderReceiptGrid();
-                
-                // Run OCR to find amount (date already set to today)
-                processReceiptWithOCR(file, receipt.id);
-            };
-            reader.readAsDataURL(file);
+                reader.readAsDataURL(file);
+            });
+            
+            // Reset input to allow selecting same files again
+            event.target.value = '';
         }
         
         // Receipt Detail Modal
