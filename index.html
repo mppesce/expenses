@@ -368,6 +368,12 @@
         </div>
         
         <div class="container">
+            <!-- Processing notification -->
+            <div id="processingNotification" style="display:none; position:fixed; top:80px; left:50%; transform:translateX(-50%); background:#4F46E5; color:white; padding:16px 24px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:1000; min-width:200px; text-align:center;">
+                <div style="font-weight:600; margin-bottom:4px;" id="processingText">Processing...</div>
+                <div style="font-size:14px;" id="processingProgress">0 of 0</div>
+            </div>
+            
             <div class="receipt-grid" id="receiptGrid"></div>
             
             <button class="btn btn-secondary export-btn" onclick="exportReceipts()">
@@ -593,6 +599,27 @@
             }
         }
         
+        // Processing Notification Functions
+        function showProcessingNotification(current, total) {
+            const notification = document.getElementById('processingNotification');
+            const text = document.getElementById('processingText');
+            const progress = document.getElementById('processingProgress');
+            
+            text.textContent = '📸 Processing receipts...';
+            progress.textContent = `${current} of ${total}`;
+            notification.style.display = 'block';
+        }
+        
+        function updateProcessingNotification(current, total) {
+            const progress = document.getElementById('processingProgress');
+            progress.textContent = `${current} of ${total}`;
+        }
+        
+        function hideProcessingNotification() {
+            const notification = document.getElementById('processingNotification');
+            notification.style.display = 'none';
+        }
+        
         // Camera Functions
         // Camera Functions
         function openCamera() {
@@ -604,11 +631,14 @@
         }
         
         async function handleImageCapture(event) {
+            console.log('=== handleImageCapture START ===');
             const files = Array.from(event.target.files);
+            console.log('Files selected:', files.length);
             if (files.length === 0) return;
             
             // Get purpose at start, not inside callback
             const purposeId = currentPurposeId;
+            console.log('Current purpose ID:', purposeId);
             if (!purposeId) {
                 console.error('No purpose selected');
                 return;
@@ -619,20 +649,37 @@
             
             console.log(`Processing ${files.length} file(s)`);
             
+            // Show processing notification
+            showProcessingNotification(0, files.length);
+            
             // Process files sequentially on mobile to avoid race conditions
             const receiptsToAdd = [];
+            console.log('Starting file processing loop...');
             
             for (let index = 0; index < files.length; index++) {
+                console.log(`--- Processing file ${index + 1} of ${files.length} ---`);
                 const file = files[index];
+                console.log('File name:', file.name, 'Size:', file.size);
                 
                 try {
+                    // Update notification
+                    updateProcessingNotification(index + 1, files.length);
+                    
                     // Read file as promise
+                    console.log('Starting FileReader...');
                     const imageData = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
-                        reader.onload = (e) => resolve(e.target.result);
-                        reader.onerror = reject;
+                        reader.onload = (e) => {
+                            console.log('FileReader onload - data length:', e.target.result.length);
+                            resolve(e.target.result);
+                        };
+                        reader.onerror = (e) => {
+                            console.error('FileReader error:', e);
+                            reject(e);
+                        };
                         reader.readAsDataURL(file);
                     });
+                    console.log('FileReader complete');
                     
                     const receipt = {
                         id: `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`,
@@ -642,33 +689,61 @@
                         captureDate: today.toISOString()
                     };
                     
+                    console.log('Created receipt with ID:', receipt.id);
                     receiptsToAdd.push(receipt);
-                    console.log(`Processed file ${index + 1} of ${files.length}`);
+                    console.log(`receiptsToAdd now has ${receiptsToAdd.length} items`);
                     
                 } catch (error) {
                     console.error('Error processing file:', error);
                 }
             }
             
+            console.log('=== File loop complete ===');
+            console.log('Total receipts to add:', receiptsToAdd.length);
+            console.log('Receipt IDs:', receiptsToAdd.map(r => r.id));
+            
             // Now add all receipts at once
             if (receiptsToAdd.length > 0) {
                 // Reload data to ensure we have latest
+                console.log('Reloading data from localStorage...');
                 reloadData();
+                console.log('Purposes after reload:', purposes.length);
                 
                 const purpose = purposes.find(p => p.id === purposeId);
+                console.log('Found purpose:', purpose ? purpose.name : 'NOT FOUND');
+                
                 if (purpose) {
-                    console.log(`Adding ${receiptsToAdd.length} receipt(s) to purpose: ${purpose.name}`);
+                    console.log('Purpose receipts BEFORE adding:', purpose.receipts.length);
+                    console.log('Adding', receiptsToAdd.length, 'new receipt(s)');
+                    
                     purpose.receipts.push(...receiptsToAdd);
-                    console.log(`Purpose now has ${purpose.receipts.length} total receipts`);
+                    
+                    console.log('Purpose receipts AFTER adding:', purpose.receipts.length);
+                    console.log('All receipt IDs in purpose:', purpose.receipts.map(r => r.id));
+                    
                     saveData();
+                    console.log('Data saved to localStorage');
+                    
+                    // Verify save
+                    const verification = JSON.parse(localStorage.getItem('purposes'));
+                    const verifiedPurpose = verification.find(p => p.id === purposeId);
+                    console.log('VERIFICATION - Receipts in localStorage:', verifiedPurpose.receipts.length);
+                    
                     renderReceiptGrid();
+                    console.log('Grid rendered');
                 } else {
                     console.error('Purpose not found!');
                 }
             }
             
+            // Hide notification after a delay
+            setTimeout(() => {
+                hideProcessingNotification();
+            }, 1000);
+            
             // Reset input to allow selecting same files again
             event.target.value = '';
+            console.log('=== handleImageCapture END ===');
         }
         
         // Receipt Detail Modal
